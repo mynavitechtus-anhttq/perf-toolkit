@@ -28,6 +28,7 @@ description: >-
 | Người dùng thật trải nghiệm thế nào? | `measure_psi.py` (mục Field) | prod — CrUX 28 ngày, p75 |
 | DB bận vì câu SQL nào, chờ cái gì? | `rds_pi_snapshot.py` | prod · stg |
 | Hạ tầng có nghẽn không (CPU, connection, hit rate, p95)? | `cloudwatch_snapshot.py` | prod · stg |
+| Bắt đầu chậm từ ngày / giờ nào? Tải theo giờ trong ngày? | `cloudwatch_snapshot.py --series day\|hour` (+ `--db-cluster` cho Aurora) | prod |
 | Câu SQL nào tốn **tổng** thời gian nhất? | `pg-top-queries.sql` | stg / replica |
 | 1 request chạy bao nhiêu query? | code tạm, không commit — [`backend-perf` playbook §2](../backend-perf/references/playbook.md) | local / dev |
 

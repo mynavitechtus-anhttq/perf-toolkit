@@ -11,6 +11,11 @@ Ví dụ:
       --db-instance my-db --cache-cluster my-redis-001 --alb app/my-alb/abc123 \
       --ecs my-cluster/my-web-service --cloudfront E123ABC --out perf/cw-prod
   python3 cloudwatch_snapshot.py ... --dry-run                                 # in query, không gọi AWS
+  python3 cloudwatch_snapshot.py --profile my-prod --start 2026-07-01T00:00:00Z \
+      --alb app/my-alb/abc123 --db-cluster my-aurora --series day --out perf/cw-trend   # xu hướng theo ngày
+  Aurora: --db-cluster <cluster> lấy chỉ số gộp theo vai trò READER / WRITER (replica autoscale vẫn tính).
+  --series hour|day: thêm series.md — bảng theo giờ / ngày để tìm "bắt đầu chậm từ lúc nào".
+  Giờ trong series.md theo env REPORT_TZ (vd Asia/Tokyo), mặc định giờ máy.
 """
 import argparse
 import json
@@ -44,6 +49,11 @@ RDS = [("CPUUtilization", "Average", "%", 1, "> 70% kéo dài: CPU nghẽn"),
        ("ReadIOPS", "Average", "", 1, ""), ("WriteIOPS", "Average", "", 1, ""),
        ("ReadLatency", "Average", "ms", 1000, "> 10ms: I/O chậm"),
        ("WriteLatency", "Average", "ms", 1000, ""), ("DiskQueueDepth", "Average", "", 1, "> 1 kéo dài: hàng đợi I/O")]
+AURORA_ROLE = [("CPUUtilization", "Average", "%", 1, "> 70% kéo dài: CPU nghẽn"),
+               ("CPUUtilization", "Maximum", "%", 1, "chạm ~100%: hết CPU"),
+               ("DatabaseConnections", "Maximum", "", 1, ""),
+               ("BufferCacheHitRatio", "Average", "%", 1, "< 99%: đọc đĩa nhiều"),
+               ("ReadIOPS", "Average", "", 1, "")]
 REDIS = [("EngineCPUUtilization", "Average", "%", 1, "> 80%: Redis nghẽn (đơn luồng)"),
          ("CPUUtilization", "Average", "%", 1, ""), ("CacheHits", "Sum", "", 1, ""),
          ("CacheMisses", "Sum", "", 1, ""), ("CurrConnections", "Maximum", "", 1, ""),
@@ -88,7 +98,7 @@ def fetch(queries, start, end, period, profile, region):
                 args += ["--next-token", token]
             r = aws(args, profile, region)
             for res in r.get("MetricDataResults", []):
-                data.setdefault(res["Id"], []).extend(res.get("Values", []))
+                data.setdefault(res["Id"], []).extend(zip(res.get("Timestamps", []), res.get("Values", [])))
             token = r.get("NextToken")
             if not token or DRY:
                 break
@@ -137,6 +147,8 @@ def main():
     ap.add_argument("--end")
     ap.add_argument("--period", type=int, default=300)
     ap.add_argument("--db-instance", action="append", default=[])
+    ap.add_argument("--db-cluster", action="append", default=[], help="Aurora DBClusterIdentifier (READER + WRITER)")
+    ap.add_argument("--series", choices=["hour", "day"], help="thêm series.md theo giờ / ngày (đặt luôn --period)")
     ap.add_argument("--cache-cluster", action="append", default=[])
     ap.add_argument("--alb", action="append", default=[], help="app/<name>/<id>")
     ap.add_argument("--ecs", action="append", default=[], help="<cluster>/<service>")
@@ -146,6 +158,8 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
     DRY = a.dry_run
+    if a.series:
+        a.period = 3600 if a.series == "hour" else 86400
 
     if a.list:
         list_resources(a.profile, a.region)
@@ -160,6 +174,8 @@ def main():
 
     regional = build([
         ("RDS", "AWS/RDS", RDS, [(x, [("DBInstanceIdentifier", x)]) for x in a.db_instance]),
+        ("Aurora", "AWS/RDS", AURORA_ROLE, [(f"{x} {role}", [("DBClusterIdentifier", x), ("Role", role)])
+                                            for x in a.db_cluster for role in ("READER", "WRITER")]),
         ("ElastiCache", "AWS/ElastiCache", REDIS, [(x, [("CacheClusterId", x)]) for x in a.cache_cluster]),
         ("ALB", "AWS/ApplicationELB", ALB, [(x, [("LoadBalancer", x)]) for x in a.alb]),
         ("ECS", "AWS/ECS", ECS, [(x, [("ClusterName", x.split("/")[0]), ("ServiceName", x.split("/")[-1])])
@@ -184,7 +200,7 @@ def main():
     current = None
     hits = {}
     for qid, ns, metric, dims, stat, unit, factor, note, res in regional + global_q:
-        st = stats([v * factor for v in data.get(qid, [])])
+        st = stats([v * factor for _, v in data.get(qid, [])])
         raw[f"{res} {metric} {stat}"] = st
         if res != current:
             if current and current in hits:
@@ -210,6 +226,40 @@ def main():
     json.dump(raw, open(os.path.join(a.out, "cloudwatch.json"), "w"), ensure_ascii=False, indent=2)
     open(os.path.join(a.out, "report.md"), "w").write("\n".join(L) + "\n")
     print(f"Report: {os.path.join(a.out, 'report.md')}")
+    if a.series:
+        path = os.path.join(a.out, "series.md")
+        open(path, "w").write(series_md(regional + global_q, data, a.series, s, e))
+        print(f"Series: {path}")
+
+
+def series_md(queries, data, unit, s, e):
+    """Một bảng / tài nguyên: hàng = giờ hoặc ngày (theo REPORT_TZ), cột = metric."""
+    tzname = os.environ.get("REPORT_TZ", "")
+    if tzname:
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo(tzname)
+    else:
+        tz = datetime.now().astimezone().tzinfo
+    fmt = "%Y-%m-%d %H:00" if unit == "hour" else "%Y-%m-%d"
+    L = ["# Infra series (CloudWatch)", "",
+         f"- **Window (UTC):** {s} → {e} · mỗi hàng 1 {'giờ' if unit == 'hour' else 'ngày'} · giờ hiển thị: {tzname or 'giờ máy'}",
+         "- Ngày theo UTC khi `--series day` (CloudWatch gom theo mốc UTC).", ""]
+    by_res = {}
+    for qid, ns, metric, dims, stat, u, factor, note, res in queries:
+        by_res.setdefault(res, []).append((f"{metric} {stat}" + (f" ({u})" if u else ""), qid, factor))
+    for res, cols in by_res.items():
+        rows = {}
+        for i, (_, qid, factor) in enumerate(cols):
+            for ts, v in data.get(qid, []):
+                rows.setdefault(ts, [None] * len(cols))[i] = v * factor
+        L += [f"## {res}", "", "| Thời điểm | " + " | ".join(c[0] for c in cols) + " |",
+              "|---|" + "---:|" * len(cols)]
+        for ts in sorted(rows):
+            t = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+            label = t.strftime(fmt) if unit == "day" else t.astimezone(tz).strftime(fmt)
+            L.append(f"| {label} | " + " | ".join("" if v is None else f"{v:,.1f}" for v in rows[ts]) + " |")
+        L.append("")
+    return "\n".join(L) + "\n"
 
 
 if __name__ == "__main__":
