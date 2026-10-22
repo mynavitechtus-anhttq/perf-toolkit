@@ -1,0 +1,8 @@
+# path<TAB>nhãn<TAB>nhóm — dòng bắt đầu bằng # bị bỏ qua.
+# Mỗi nhóm 2–5 URL, phủ biến thể nặng và nhẹ. URL phải trả 200 trên môi trường sẽ đo.
+# Ví dụ thật của từng dự án: xem profiles/<project>.md.
+/	Trang chủ	top
+/search?area=tokyo	Tìm kiếm: 1 điều kiện	search
+/search?area=tokyo&type=full&page=3	Tìm kiếm: nhiều điều kiện, trang 3	search
+/items/1001	Chi tiết: có ảnh	detail
+/items/1002	Chi tiết: không ảnh	detail

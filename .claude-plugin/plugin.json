@@ -1,0 +1,28 @@
+{
+  "name": "perf-toolkit",
+  "version": "0.1.0",
+  "description": "Chưa biết dùng thì gõ /perf-toolkit:help. Bộ cải thiện hiệu năng trang web — mọi trang, không riêng trang tìm kiếm. Luồng 7 bước: perf-scope (đọc knowledge base dự án, vd kaigo-doc → phạm vi trang + câu hỏi chốt với khách) → perf-measure baseline (đo TTFB tách server/mạng, PSI lab + field CrUX median nhiều lần, RDS Performance Insights / Database Insights, CloudWatch, pg_stat_statements → report hiện trạng: chỉ số, phương án, mong đợi) → backend-perf / psi-improve điều tra (2 report: vấn đề · hiện trạng · nguyên nhân · hướng xử lý · mong đợi · AC · rủi ro · quan điểm test) → perf-test-plan (parity, unit, integration, regression, e2e, visual, tracking; test case qua ai-qc-framework) + planning (WBS + lịch có mốc đo, duyệt tag, chờ field 28 ngày) → implement từng thay đổi + đo lại → kiểm thử trên stg → perf-report (báo cáo khách ja / vn-en). Kèm 5 script đo và template report rút từ SHOKAI_ARCH_2506-76.",
+  "author": {
+    "name": "anhttq"
+  },
+  "keywords": [
+    "performance",
+    "pagespeed",
+    "psi",
+    "lighthouse",
+    "core-web-vitals",
+    "ttfb",
+    "rds-performance-insights",
+    "database-insights",
+    "cloudwatch",
+    "postgresql",
+    "explain",
+    "index",
+    "n+1",
+    "cache",
+    "laravel",
+    "test-plan",
+    "planning",
+    "wbs"
+  ]
+}
