@@ -7,6 +7,9 @@
 #   BASE_URL=<url> PAGES=pages.tsv ./measure-ttfb.sh before   # đo + lưu snapshot
 #   BASE_URL=<url> PAGES=pages.tsv ./measure-ttfb.sh after    # đo + so với snapshot
 #   BASE_URL=<url> PAGES=pages.tsv ./measure-ttfb.sh          # ảnh chụp hiện trạng
+#   BASE_URL=<url> PAGES=fresh.tsv ./measure-ttfb.sh miss     # thời gian khi cache miss: lần 1 vs lần 2 ngay sau
+#     → PAGES phải là URL chưa ai truy cập trong TTL cache (tổ hợp hiếm, trang phân trang sâu).
+#       Lần 2 ≈ lần 1 nghĩa là URL không có cache, hoặc đã nóng sẵn từ trước — chọn URL khác.
 #
 # PAGES: TSV  <path><TAB><nhãn><TAB><nhóm>   (dòng trống / bắt đầu bằng # bị bỏ qua)
 #
@@ -18,6 +21,7 @@
 #   UTM_CHECK=/path             so URL sạch với URL có utm_* (phát hiện cache key lệch)
 #   SLEEP=0                     nghỉ giữa các request (giây) — đặt 1 khi đo prod
 #   TITLE="Page performance"    tiêu đề report
+#   REPORT_TZ=Asia/Tokyo        múi giờ ghi trong report (mặc định: giờ máy đo, luôn kèm offset UTC)
 #
 # Đọc kết quả:
 #   TTFB    = time_starttransfer (byte đầu tiên về tới client)
@@ -41,12 +45,14 @@ SLEEP="${SLEEP:-0}"
 TITLE="${TITLE:-Page performance}"
 AUTH="${AUTH:-}"
 UTM_CHECK="${UTM_CHECK:-}"
+REPORT_TZ="${REPORT_TZ:-}"
 
 case "$PHASE" in
   before) DEFREP="perf-ttfb-before-$(date +%Y%m%d-%H%M).md"; PHLABEL="Before";;
   after)  DEFREP="perf-ttfb-compare-$(date +%Y%m%d-%H%M).md"; PHLABEL="Before / After";;
+  miss)   DEFREP="perf-ttfb-miss-$(date +%Y%m%d-%H%M).md"; PHLABEL="Cache miss";;
   "")     DEFREP="perf-ttfb-snapshot-$(date +%Y%m%d-%H%M).md"; PHLABEL="Current snapshot";;
-  *) echo "Phase không hợp lệ: '$PHASE' (before | after | để trống)"; exit 1;;
+  *) echo "Phase không hợp lệ: '$PHASE' (before | after | miss | để trống)"; exit 1;;
 esac
 REPORT="${REPORT:-$DEFREP}"
 
@@ -86,13 +92,76 @@ stat_p95(){ sort -n | awk '{a[++n]=$1} END{ if(n==0){print ""; exit} i=int(n*0.9
 median_ints(){ [ "$#" -eq 0 ] && { echo "-"; return; }; printf '%s\n' "$@" | sort -n | awk '{a[++n]=$1} END{ print a[int((n+1)/2)] }'; }
 pct(){ [ "$1" = "-" ] && echo "n/a" || echo "$1%"; }
 
+now_str(){
+  if [ -n "$REPORT_TZ" ]; then TZ="$REPORT_TZ" date '+%Y-%m-%d %H:%M %Z (UTC%z)'
+  else date '+%Y-%m-%d %H:%M %Z (UTC%z)'; fi
+}
+write_errors(){ if [ "${#ERRORS[@]}" -eq 0 ]; then echo "- Không có"; else for e in "${ERRORS[@]}"; do echo "- $e"; done; fi; }
+
+meta_block(){
+  echo "- **Target:** ${BASE}"
+  echo "- **Measured at:** $(now_str)"
+  echo "- **Method:** ${1:-curl TTFB (time_starttransfer); ${WARMUP} warm-up requests ignored, then ${N} warm samples per URL.}"
+  echo "- **Basic Auth:** $([ -n "$AUTH" ] && echo used || echo not used)"
+  echo "- **Comparison condition:** before and after on the same environment, same client network, similar time/load."
+}
+glossary(){
+  echo "## How To Read"; echo
+  echo "- **1st request:** first request of this run. It is a cache miss **only if** nobody requested this URL within the cache TTL — do not read it as cache-miss time. Use phase \`miss\` with fresh URLs for that."
+  echo "- **Warm median / min / P95:** typical / best-case / slow-end TTFB after warm-up. Use **warm min** to compare before/after — least affected by network and load noise."
+  echo "- **Server:** starttransfer − pretransfer = server processing + queueing (excludes DNS/TCP/TLS)."
+  echo "- **Network:** DNS + TCP + TLS (each curl opens a new connection)."
+  echo "- If TTFB is high but **Server** is small, the bottleneck is network/infra — tuning queries will not help."
+}
+
+# ---------- phase miss: lần 1 (cache miss) vs lần 2 (vừa được cache) ----------
+if [ "$PHASE" = "miss" ]; then
+  ERRORS=(); rows=""; RATIOS=()
+  echo "[$PHLABEL] BASE=$BASE AUTH=$([ -n "$AUTH" ] && echo yes || echo no) -> $REPORT"
+  hr
+  printf "%-44s %-6s %9s %9s %9s %7s\n" "PATH" "status" "1st" "1st-srv" "2nd" "ratio"
+  hr
+  for i in "${!P_PATH[@]}"; do
+    path="${P_PATH[$i]}"; url="$BASE$path"
+    l1="$(measure "$url")"; l2="$(measure "$url")"
+    c1="$(printf '%s' "$l1" | cut -f1)"; c2="$(printf '%s' "$l2" | cut -f1)"
+    if ! is_ok "$c1" || ! is_ok "$c2"; then
+      ERRORS+=("$path trả HTTP $c1 / $c2")
+      rows+="| ${P_LABEL[$i]} | ${P_GROUP[$i]} | \`${path}\` | - | - | - | - | HTTP $c1/$c2 |"$'\n'
+      printf "%-44s %-6s\n" "$path" "HTTP$c1"; continue
+    fi
+    pre1="$(printf '%s' "$l1" | cut -f2)"; st1="$(printf '%s' "$l1" | cut -f3)"; st2="$(printf '%s' "$l2" | cut -f3)"
+    srv1="$(awk -v a="$st1" -v b="$pre1" 'BEGIN{ d=a-b; if(d<0)d=0; printf "%.6f", d }')"
+    ratio="$(awk -v a="$st1" -v b="$st2" 'BEGIN{ if(b+0>0) printf "%.1f", a/b; else print "-" }')"
+    RATIOS+=("$ratio")
+    note=""; awk -v r="$ratio" 'BEGIN{ exit !(r+0 < 1.5) }' && note=" · 2nd ≈ 1st: no cache, or already warm"
+    rows+="| ${P_LABEL[$i]} | ${P_GROUP[$i]} | \`${path}\` | $(toms "$st1") ms | $(toms "$srv1") ms | $(toms "$st2") ms | ×${ratio} | OK${note} |"$'\n'
+    printf "%-44s %-6s %7sms %7sms %7sms %6s\n" "$path" "OK" "$(toms "$st1")" "$(toms "$srv1")" "$(toms "$st2")" "x$ratio"
+  done
+  {
+    echo "# ${TITLE} — TTFB ${PHLABEL}"; echo
+    meta_block "curl TTFB, 2 requests back to back per URL: 1st = cache miss (URL assumed not requested within the cache TTL), 2nd = just cached."; echo
+    echo "## Results By Page"; echo
+    echo "| Page | Group | Path | 1st request | 1st server | 2nd request | 1st / 2nd | Status |"
+    echo "|---|---|---|---:|---:|---:|---:|---|"
+    printf '%s' "$rows"; echo
+    echo "## Measurement Warnings"; echo; write_errors; echo
+    echo "## How To Read"; echo
+    echo "- **1st request** is cache-miss time only if the URL was not requested within the cache TTL. Pick rare condition combinations or deep pagination pages."
+    echo "- **1st / 2nd ≈ 1** → the URL has no cache, or was already warm. Pick another URL before concluding."
+    echo "- Each URL is measured once — repeat on several fresh URLs instead of re-running the same ones (the 2nd run is no longer a miss)."
+  } > "$REPORT"
+  hr; echo "Report: $REPORT"
+  exit 0
+fi
+
 # ---------- đo ----------
 COLD=(); MED=(); MIN=(); P95=(); SRV=(); NET=(); STATUS=()
 ERRORS=()
 
 echo "[$PHLABEL] BASE=$BASE N=$N WARMUP=$WARMUP AUTH=$([ -n "$AUTH" ] && echo yes || echo no) -> $REPORT"
 hr
-printf "%-44s %-9s %8s %9s %9s %9s %9s\n" "PATH" "status" "cold" "warm-med" "warm-min" "server" "network"
+printf "%-44s %-9s %8s %9s %9s %9s %9s\n" "PATH" "status" "1st-req" "warm-med" "warm-min" "server" "network"
 hr
 
 for i in "${!P_PATH[@]}"; do
@@ -169,24 +238,6 @@ if [ -n "$UTM_CHECK" ]; then
   fi
 fi
 
-write_errors(){ if [ "${#ERRORS[@]}" -eq 0 ]; then echo "- Không có"; else for e in "${ERRORS[@]}"; do echo "- $e"; done; fi; }
-
-meta_block(){
-  echo "- **Target:** ${BASE}"
-  echo "- **Measured at:** $(date '+%Y-%m-%d %H:%M')"
-  echo "- **Method:** curl TTFB (time_starttransfer); ${WARMUP} warm-up requests ignored, then ${N} warm samples per URL."
-  echo "- **Basic Auth:** $([ -n "$AUTH" ] && echo used || echo not used)"
-  echo "- **Comparison condition:** before and after on the same environment, same client network, similar time/load."
-}
-glossary(){
-  echo "## How To Read"; echo
-  echo "- **Cold:** first request of this run (cache may be empty)."
-  echo "- **Warm median / min / P95:** typical / best-case / slow-end TTFB after warm-up. Use **warm min** to compare before/after — least affected by network and load noise."
-  echo "- **Server:** starttransfer − pretransfer = server processing + queueing (excludes DNS/TCP/TLS)."
-  echo "- **Network:** DNS + TCP + TLS (each curl opens a new connection)."
-  echo "- If TTFB is high but **Server** is small, the bottleneck is network/infra — tuning queries will not help."
-}
-
 # danh sách nhóm duy nhất
 UNIQ_GROUPS=()
 for g in "${P_GROUP[@]}"; do
@@ -259,7 +310,7 @@ else
     echo "# ${TITLE} — TTFB ${PHLABEL}"; echo
     meta_block; echo
     echo "## Results By Page"; echo
-    echo "| Page | Group | Path | Cold | Warm median | Warm min | Warm P95 | Server | Network | Status |"
+    echo "| Page | Group | Path | 1st request | Warm median | Warm min | Warm P95 | Server | Network | Status |"
     echo "|---|---|---|---:|---:|---:|---:|---:|---:|---|"
     printf '%s' "$rows"; echo
     echo "## UTM / Tracking Parameter Check"; echo

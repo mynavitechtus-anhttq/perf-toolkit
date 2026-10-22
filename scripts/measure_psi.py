@@ -35,6 +35,17 @@ from datetime import datetime
 
 PSI_ENDPOINT = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed"
 
+
+def now_str():
+    """Giờ đo kèm offset UTC; env REPORT_TZ (vd Asia/Tokyo) đổi múi giờ ghi trong report."""
+    tz = os.environ.get("REPORT_TZ", "")
+    if tz:
+        from zoneinfo import ZoneInfo
+        now = datetime.now(ZoneInfo(tz))
+    else:
+        now = datetime.now().astimezone()
+    return now.strftime("%Y-%m-%d %H:%M %Z (UTC%z)")
+
 # (audit id trong Lighthouse, tên ngắn, đơn vị)
 LAB = [
     ("first-contentful-paint", "FCP", "ms"),
@@ -296,7 +307,7 @@ def main():
                             "third_party": rep_ex["third_party"], "opportunities": rep_ex["opportunities"]})
 
     summary = {"meta": {"base_url": base, "engine": a.engine, "runs": a.runs, "strategies": strategies,
-                        "measured_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                        "measured_at": now_str(),
                         "basic_auth": bool(basic) if a.engine == "lighthouse" else False},
                "pages": results, "errors": errors}
     with open(os.path.join(a.out, "summary.json"), "w") as f:

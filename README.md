@@ -72,7 +72,7 @@ tasks/ABC-123/perf/
 
 | Script | Đo gì | Cần |
 |---|---|---|
-| `scripts/measure-ttfb.sh` | TTFB warm median/min/p95, tách server vs mạng, before/after | bash, curl |
+| `scripts/measure-ttfb.sh` | TTFB warm median/min/p95, tách server vs mạng, before/after, lúc cache miss (`miss`) | bash, curl |
 | `scripts/measure_psi.py` | điểm + lab (median N lần), field CrUX, LCP subparts, bên thứ ba, opportunities | python3; `PSI_API_KEY` (engine psi) hoặc Chrome + npx (engine lighthouse) |
 | `scripts/rds_pi_snapshot.py` | DB load vs vCPU, top SQL, top wait event | aws cli, quyền đọc `pi:*` |
 | `scripts/cloudwatch_snapshot.py` | RDS, ElastiCache, ALB, ECS, CloudFront | aws cli, quyền đọc CloudWatch |

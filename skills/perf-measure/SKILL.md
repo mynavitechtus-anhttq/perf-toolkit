@@ -22,6 +22,7 @@ description: >-
 | Câu hỏi | Công cụ | Môi trường |
 |---|---|---|
 | Server trả byte đầu mất bao lâu? Chậm do mạng hay server? | `measure-ttfb.sh` | prod · stg (`AUTH`) |
+| Lúc chưa có cache (người đầu tiên tìm tổ hợp đó) chậm cỡ nào? | `measure-ttfb.sh miss` | prod · stg |
 | Điểm PSI + chỉ số lab là bao nhiêu? Mất điểm ở đâu? | `measure_psi.py --engine psi` | prod (URL công khai) |
 | Như trên, nhưng môi trường có Basic Auth | `measure_psi.py --engine lighthouse` | stg — chỉ có lab |
 | Người dùng thật trải nghiệm thế nào? | `measure_psi.py` (mục Field) | prod — CrUX 28 ngày, p75 |
@@ -38,6 +39,9 @@ description: >-
 # TTFB — before (lưu snapshot) / after (so với snapshot)
 BASE_URL=<url> PAGES=$WS/1-scope/pages.tsv PERF_SNAP=$RUN/ttfb.snap REPORT=$RUN/ttfb.md \
   N=20 SLEEP=1 [AUTH="$STG_BASIC_AUTH"] [UTM_CHECK=/some/path] $PLUGIN/scripts/measure-ttfb.sh before
+
+# TTFB khi cache miss — URL chưa ai truy cập trong TTL (tổ hợp hiếm, trang phân trang sâu); mỗi URL chỉ đo được 1 lần
+BASE_URL=<url> PAGES=$RUN/fresh.tsv REPORT=$RUN/ttfb-miss.md SLEEP=1 $PLUGIN/scripts/measure-ttfb.sh miss
 
 # PSI — cần PSI_API_KEY (không có key: quota chung, gần như luôn 429)
 PSI_API_KEY=… python3 $PLUGIN/scripts/measure_psi.py --base-url <url> --pages $WS/1-scope/pages.tsv \
@@ -60,6 +64,8 @@ Cảnh báo AWS: console Performance Insights đã EOL 31/07/2026 → CloudWatch
 ## Quy tắc đo
 
 - **Before/after:** cùng môi trường, cùng mạng client, cùng khung giờ, chạy sát nhau.
+- **Giờ đo:** đặt `REPORT_TZ` theo profile (vd `Asia/Tokyo`) để giờ trong report khớp log của khách; report luôn ghi kèm offset UTC.
+- **Cache miss:** cột *1st request* của phase thường **không** chắc là miss (URL có thể vừa có người truy cập). Muốn biết lúc miss chậm cỡ nào → phase `miss` với URL mới, và ghi TTL cache của môi trường vào report.
 - **TTFB:** so bằng **warm min** — ít nhiễu mạng/tải nhất. Đọc cột *Server* trước: TTFB cao mà Server nhỏ → nghẽn ở mạng/hạ tầng, tối ưu query là tối ưu nhầm chỗ.
 - **PSI:** median **≥ 5 lần**, ghi cả min–max. Điểm lab dao động dù code không đổi.
 - **Field (CrUX):** cửa sổ trượt **28 ngày** → sau release phải đợi tới 28 ngày mới phản ánh đủ. Scope `origin` = URL không đủ traffic, số là của cả domain.

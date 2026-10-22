@@ -23,6 +23,10 @@ Mẫu profile cho dự án khác: copy file này, thay nội dung, giữ nguyên
 
 Basic Auth: hỏi người dùng, đặt vào env (`AUTH` / `BASIC_AUTH`), không ghi vào file.
 
+Giờ trong report: `REPORT_TZ=Asia/Tokyo` (khách ở Nhật, log theo JST).
+
+Cache prod (user cung cấp 22/10/2026): `JOB_SEARCH_CACHE_TTL=900` · `JOB_CACHE_DRIVER=redis`. Key theo URL + trang phân trang → tổ hợp ít người tìm gần như luôn miss.
+
 ## Route chính
 
 | Trang | Route | Controller |
@@ -62,6 +66,7 @@ Gợi ý `pages.tsv` cho trang chi tiết: lấy `recruitno` thật đang mở t
 
 - **Cache gate:** `config('job.cache.ttl')` = env `JOB_SEARCH_CACHE_TTL` (mặc định 0). `≤ 0` → **tắt toàn bộ cache phụ**, TTL riêng từng loại bị bỏ qua. Trang chi tiết (`rememberJobDetail`) cũng đi qua TTL này.
 - **Trang chi tiết ghi DB mỗi lượt xem:** `JobDetailController` gọi `recordJobAccess()` → `IncrementJobAccessCountUseCase` → `incrementCount()` **đồng bộ trong request**, ngoài phạm vi cache. Nghi vấn hotspot — cần đo.
+- **Trang tìm kiếm khi cache miss chậm 0.7–8.5s** (cache nóng ~250ms) — đo prod 22/10/2026, `tasks/PERF-20261022/`. Query trong `JobRepository::executeMainSearch` đếm + sắp xếp trên toàn tập trước `LIMIT`. Đo bằng phase `miss`, không đọc cột *1st request*.
 - `JobCacheService` bind singleton để preload MGET dùng chung trong 1 request (web; không dùng ở queue).
 - Blade component `data()` gộp public property + public method; method ghi đè property cùng tên.
 - **Dữ liệu tin tuyển do hệ thống bên thứ ba của khách ghi** (import / update / delete); kaigo chỉ đọc. Thêm index trên bảng tin = thay đổi phải thống nhất với khách.

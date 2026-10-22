@@ -21,7 +21,7 @@ Report điều tra: TL;DR → Vấn đề → Hiện trạng → Nguyên nhân �
                  → Rủi ro → Quan điểm test → Còn treo → --- → Chi tiết kỹ thuật
 
 Script ($PLUGIN/scripts)
-  measure-ttfb.sh          TTFB warm median/min/p95, tách server vs mạng, before/after
+  measure-ttfb.sh          TTFB warm median/min/p95, tách server vs mạng, before/after · miss (lúc chưa có cache)
   measure_psi.py           điểm PSI + lab (median N lần) + field CrUX, LCP subparts, bên thứ ba
                            --engine psi (prod, cần PSI_API_KEY) | lighthouse (stg có Basic Auth)
   rds_pi_snapshot.py       DB load vs vCPU, top SQL, top wait event  (chỉ đọc)
