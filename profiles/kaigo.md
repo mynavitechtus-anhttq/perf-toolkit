@@ -49,12 +49,13 @@ Gợi ý `pages.tsv` cho trang chi tiết: lấy `recruitno` thật đang mở t
 
 | Loại | Tên / ID |
 |---|---|
-| AWS profile | `TBD` |
-| RDS instance (prod / stg) | `TBD` — dò bằng `cloudwatch_snapshot.py --list` |
+| AWS profile (prod) | `PowerUserPlusAccess-408189830005` (SSO, account 408189830005, region ap-northeast-1) — quyền ghi được nhưng **chỉ dùng lệnh đọc** |
+| Aurora PostgreSQL (prod) | cluster `prodkaigoshoku-postgresauroracluster` — writer r8g.large + reader r8g.xlarge + replica autoscale (CPU 70%, min 1 / max 3, **replica autoscale không bật PI**) |
 | ElastiCache cluster | `TBD` |
-| ALB | `TBD` |
+| ALB (prod) | `app/ProdKaigoshoku-Alb/b4bae07798fc7f1b` |
 | ECS cluster / service web | `TBD` |
-| CloudFront distribution | `TBD` |
+| CloudFront (prod) | `E27F48QFD2I4YT` |
+| Access log | ALB: `s3://prodkaigoshoku-log-bucket/alb/` · CloudFront: `s3://prodkaigoshoku-log-bucket/cloudfront/new-prod.kaigoshoku.mynavi.jp/` (~120MB/giờ) |
 
 ## Quy ước code khi implement
 

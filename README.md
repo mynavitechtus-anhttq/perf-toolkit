@@ -18,7 +18,7 @@ Gõ `/perf-toolkit:help` để xem bản đồ.
 | # | Bước | Skill | Output |
 |---|---|---|---|
 | 1 | Phạm vi | `perf-scope` | `scope.md` · `pages.tsv` · câu hỏi chốt với khách |
-| 2 | Đo hiện trạng | `perf-measure` baseline | **report hiện trạng** — cổng quyết định |
+| 2 | Đo hiện trạng | `perf-measure` baseline · `infra-check` (khi server chậm) | **report hiện trạng** — cổng quyết định · report hạ tầng |
 | 3 | Điều tra sâu | `backend-perf` · `psi-improve` | `report-backend` · `report-psi` |
 | 4 | Test + kế hoạch | `perf-test-plan` · `planning` | `test-plan` · `plan` · `wbs-schedule` |
 | 5 | Implement | `backend-perf` / `psi-improve` implement + `perf-measure` compare | code + số trước/sau |
@@ -38,6 +38,7 @@ tasks/ABC-123/perf/
 │   └── pages.tsv                         # URL đại diện
 ├── 2-baseline/
 │   ├── report-baseline-20261023.md       # hiện trạng + phương án sơ bộ → khách duyệt
+│   ├── infra-20261023.md                 # hạ tầng: traffic, DB reader/writer, autoscaling, top SQL (infra-check)
 │   └── raw-20261023/                     # output thô của script
 │       ├── ttfb.md · ttfb.snap
 │       ├── psi/      summary.json · report.md · raw/{page}-mobile.json

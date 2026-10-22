@@ -7,7 +7,7 @@ Mọi skill trong plugin trỏ về file này. Đừng chép lại nội dung �
 | # | Bước | Skill | Output | Cổng |
 |---|---|---|---|---|
 | 1 | Phạm vi | `perf-scope` | `1-scope/` scope.md · pages.tsv · câu hỏi chốt với khách | Khách chốt trang · thiết bị · chỉ số · mục tiêu |
-| 2 | Đo hiện trạng | `perf-measure` (baseline) | `2-baseline/` report-baseline · raw số đo | **Cổng quyết định** — khách/lead duyệt có làm tiếp không, làm phần nào |
+| 2 | Đo hiện trạng | `perf-measure` (baseline) · `infra-check` khi Server cao | `2-baseline/` report-baseline · infra · raw số đo | **Cổng quyết định** — khách/lead duyệt có làm tiếp không, làm phần nào |
 | 3 | Điều tra sâu | `backend-perf` · `psi-improve` (điều tra) | `3-investigate/` report-backend · report-psi | Lead duyệt hướng xử lý |
 | 4 | Test + kế hoạch | `perf-test-plan` · `planning` | `4-plan/` plan · wbs-schedule · `6-testing/` test-plan · checklist · test case | Khách duyệt lịch |
 | 5 | Implement | `backend-perf` · `psi-improve` (implement) + `perf-measure` (compare) | code + `5-implement/` số trước/sau từng item | Mỗi thay đổi đạt AC mới làm thay đổi kế |
@@ -23,7 +23,7 @@ Thiếu output của bước trước → chạy bước trước, không đoán
 ```
 tasks/{TICKET}/perf/                 # = $WS
 ├── 1-scope/        scope.md · pages.tsv
-├── 2-baseline/     report-baseline-{yyyymmdd}.md · raw-{yyyymmdd}/
+├── 2-baseline/     report-baseline-{yyyymmdd}.md · infra-{yyyymmdd}.md · raw-{yyyymmdd}/
 ├── 3-investigate/  report-backend-{yyyymmdd}.md · report-psi-{yyyymmdd}.md
 ├── 4-plan/         plan.md · wbs-schedule.md
 ├── 5-implement/    item{N}-{yyyymmdd}/            # số trước/sau của từng item trong plan.md

@@ -10,6 +10,7 @@ perf-toolkit — cải thiện hiệu năng trang web (mọi trang)
  #  Bước            Skill                         Ra
  1  Phạm vi         perf-scope                    scope.md · pages.tsv · câu hỏi chốt với khách
  2  Đo hiện trạng   perf-measure baseline         report hiện trạng (chỉ số · phương án · mong đợi)   ← cổng quyết định
+                    infra-check (server chậm)     report hạ tầng — hỏi Console hay CLI rồi chỉ từng bước
  3  Điều tra sâu    backend-perf điều tra         report-backend
                     psi-improve điều tra          report-psi
  4  Test + kế hoạch perf-test-plan · planning     test-plan · plan · wbs-schedule

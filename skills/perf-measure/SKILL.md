@@ -76,7 +76,7 @@ Cảnh báo AWS: console Performance Insights đã EOL 31/07/2026 → CloudWatch
 
 Đây là **cổng quyết định** cho khách/lead trước khi team đầu tư điều tra sâu.
 
-1. Bắt buộc: TTFB + PSI cho toàn bộ `pages.tsv`. Thêm RDS + CloudWatch khi cột *Server* vượt ngân sách hoặc nghi DB/hạ tầng.
+1. Bắt buộc: TTFB + PSI cho toàn bộ `pages.tsv`. Cột *Server* vượt ngân sách hoặc nghi DB/hạ tầng → chạy [`infra-check`](../infra-check/SKILL.md).
 2. Viết `$WS/2-baseline/report-baseline-{yyyymmdd}.md` theo `$PLUGIN/templates/report-baseline.md`: chỉ số → thời gian mất ở đâu → phương án sơ bộ → mong đợi → cần khách chốt.
 3. **Ước lượng "mong đợi" — tính, không đoán:**
    - **Backend:** không thể tiết kiệm nhiều hơn phần *Server* của TTFB. Trong đó phần DB ≈ tỉ trọng top SQL của trang (RDS PI / pg_stat_statements) → đó là **trần** cải thiện.

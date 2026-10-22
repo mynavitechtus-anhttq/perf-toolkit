@@ -75,3 +75,14 @@ SELECT pid, now() - query_start AS running_for, state, wait_event_type, wait_eve
 FROM pg_stat_activity
 WHERE state <> 'idle' AND query_start < now() - interval '5 seconds' AND pid <> pg_backend_pid()
 ORDER BY query_start;
+
+\echo '== §8. Bảng lớn nhất (dung lượng gồm index + TOAST, số dòng ước tính) =='
+SELECT relname,
+       pg_size_pretty(pg_total_relation_size(relid)) AS total_size,
+       pg_size_pretty(pg_relation_size(relid))       AS table_size,
+       n_live_tup                                    AS est_rows,
+       n_dead_tup                                    AS dead_rows,
+       last_autoanalyze
+FROM pg_stat_user_tables
+ORDER BY pg_total_relation_size(relid) DESC
+LIMIT :lim;
