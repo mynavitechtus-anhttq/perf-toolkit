@@ -27,6 +27,47 @@ Gõ `/perf-toolkit:help` để xem bản đồ.
 
 Chi tiết luồng, workspace, an toàn, ngân sách: [`skills/_shared/workflow.md`](skills/_shared/workflow.md).
 
+## Output mẫu
+
+Mọi file ghi vào `tasks/{TICKET}/perf/` trong repo dự án, mỗi bước một thư mục. Ví dụ một task cải thiện trang list + detail:
+
+```
+tasks/ABC-123/perf/
+├── 1-scope/
+│   ├── scope.md                          # mục tiêu, trang đo, màn bị ảnh hưởng, câu hỏi cho khách
+│   └── pages.tsv                         # URL đại diện
+├── 2-baseline/
+│   ├── report-baseline-20261023.md       # hiện trạng + phương án sơ bộ → khách duyệt
+│   └── raw-20261023/                     # output thô của script
+│       ├── ttfb.md · ttfb.snap
+│       ├── psi/      summary.json · report.md · raw/{page}-mobile.json
+│       ├── rds/      report.md · rds-pi.json
+│       ├── cw/       report.md · cloudwatch.json
+│       └── pg-top.txt
+├── 3-investigate/
+│   ├── report-backend-20261028.md        # vấn đề · nguyên nhân · hướng xử lý · AC · rủi ro · quan điểm test
+│   └── report-psi-20261028.md
+├── 4-plan/
+│   ├── plan.md                           # WBS: mỗi item = 1 thay đổi đo được
+│   └── wbs-schedule.md                   # lịch theo ngày gửi khách
+├── 5-implement/
+│   ├── item1-20261030/                   # số trước/sau của item 1 (cùng kiểu raw-*)
+│   └── item2-20261102/
+├── 6-testing/
+│   ├── test-plan.md                      # bảng item × loại test
+│   ├── checklist-smoke.md
+│   ├── testcases/                        # test case từ ai-qc-framework
+│   └── results/
+│       ├── item1-20261030/               # parity diff, kết quả test của item
+│       └── stg-20261127/                 # checklist đã tick, visual, tracking, số đo stg
+└── 7-delivery/
+    ├── report-final-ja-20261130.md       # report gửi khách
+    ├── report-final-vn-en-20261130.md
+    └── verify-20261130/                  # số đo sau release prod
+```
+
+Đo lại thì tạo thư mục / file ngày mới, không ghi đè bản cũ.
+
 ## Script
 
 | Script | Đo gì | Cần |
