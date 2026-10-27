@@ -29,6 +29,7 @@ Chạy `backend-perf điều tra` hoặc `backend-perf implement <item>`. Không
 
 | # | Bước | Trả lời câu hỏi | Playbook |
 |---|---|---|---|
+| 0 | Tải hay code? | Chậm trùng khung giờ đông / ngày traffic tăng mà không trùng release → không phải code, chuyển [`infra-check`](../infra-check/SKILL.md) | `perf-measure` §Khoanh vùng · §10 |
 | 1 | Tách TTFB | Chậm ở mạng hay ở server? *Server* nhỏ → dừng, chuyển sang mạng/hạ tầng | §1 |
 | 2 | Profile 1 request | Bao nhiêu query, tổng SQL bao lâu, use case nào chiếm thời gian | §2 |
 | 3 | Xếp hạng SQL | Câu nào tốn **tổng** nhiều nhất (chậm × nhiều lần); DB đang chờ gì | §3 |

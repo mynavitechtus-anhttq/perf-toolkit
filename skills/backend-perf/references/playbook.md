@@ -123,10 +123,33 @@ Lưu plan **trước/sau** vào phần *Chi tiết kỹ thuật* của report �
 | Phase | Đã làm | Kết quả |
 |---|---|---|
 | 1 — prod 23/06/2026 | Cache dữ liệu phụ (FAQ, review, thống kê tỉnh, banner…) với TTL riêng theo loại · gộp các lần đọc cache thành 1 MGET · sửa bug **cache null** của banner vùng (rỗng → tính lại mỗi request) · bỏ `serialize()` đo kích thước để ghi log · gộp helper sinh key trùng lặp | Prod warm median **−19%** (369 → 300ms); trang lọc theo tỉnh −20%, trang khác −12%; Tokyo 655 → 302ms |
-| 2 — main 21/07/2026 | Dùng lại cache đếm job · dùng lại dữ liệu city · tối ưu render thẻ job · giảm log + dọn SQL | `[chưa có số đo prod được lưu lại]` |
+| 2 — main 21/07/2026 | Dùng lại cache đếm job · dùng lại dữ liệu city · tối ưu render thẻ job · giảm log + dọn SQL | Lần đầu (đã xoá cache trước khi đo) trung bình 5,798 → 393ms (−93%); ALB trung bình theo ngày 1.4–2.2s → 0.22–0.39s |
+| Đo lại 22/10/2026 (PERF-20261022) | Không đổi code — điều tra "search vẫn chậm" | Lần đầu lại 0.7–8.5s **chỉ trong 04:00–15:00 JST**: Applebot crawl ~107k req/h, 73% URL tìm kiếm không lặp → cache miss, DB reader CPU 99%. Ngoài khung vẫn như sau Phase 2. Xem §10 |
 
 **Bài học đo:**
 - TTFB đo từ client nhiễu (mạng + tải stg) — che mất mức tiết kiệm vài chục ms. So bằng **warm min**, đo before/after cùng môi trường, cùng giờ.
 - Kiểm URL có UTM: nếu chậm hơn URL sạch rõ rệt → cache key đang chứa tham số tracking.
 - Muốn số server thuần, không nhiễu mạng → đo từ trong VPC (hoặc ALB `TargetResponseTime`).
 - Cải thiện cache chủ yếu thấy ở lần truy cập **sau** — lần đầu (cache trống) vẫn phải tính; muốn cải thiện lần đầu phải tối ưu query.
+- Muốn đo lần đầu (cache miss) thật: **xoá cache sau lượt before** rồi mới đo after, hoặc dùng URL chưa ai truy cập (`measure-ttfb.sh miss`). Before và after cách nhau ít hơn TTL mà không xoá cache → after đọc cache của before.
+- "Chậm lại" sau khi đã tối ưu → khoanh vùng trước (`perf-measure` §Khoanh vùng): lần 22/10 nguyên nhân là crawler, không phải code thoái hoá.
+
+## §10. Tải từ crawler / bot
+
+Dấu hiệu: lượng request tăng theo **bậc**, chạy theo **khung giờ cố định** (bật / tắt đúng giờ chẵn), trang chậm **chỉ trong khung đó**, CPU DB đọc cao mà đọc RAM ~100%.
+
+1. **Xác định ai:** access log (ALB / CloudFront) đếm theo user agent, loại URL, tỉ lệ URL không lặp — [`infra-check`](../../infra-check/SKILL.md) mục 2. Đứng sau CloudFront thì IP thật ở CloudFront log.
+2. **Bot thật hay giả:** IP thuộc dải nhà cung cấp (Apple 17.0.0.0/8; Google, Bing có danh sách công bố) hoặc reverse DNS khớp. Giả → chặn được (WAF); thật → phải cân nhắc SEO.
+3. **Vì sao cache vô dụng:** trang có bộ lọc (tỉnh × nghề × bằng cấp × … × trang) sinh ra **số URL gần như vô hạn**; crawler đi từng tổ hợp, mỗi URL chỉ 1 lần → gần như toàn miss, mọi lượt đều chạy query nặng.
+4. **Hướng xử lý — từ rẻ tới đắt, đều cần người phụ trách SEO phía khách quyết:**
+
+   | Cách | Tác dụng | Đánh đổi |
+   |---|---|---|
+   | `robots.txt` chặn tổ hợp sâu (vd ≥ 2 điều kiện, trang phân trang sâu) cho bot đó | bot không vào nữa | trang đó không còn trên công cụ của bot (Spotlight / Siri với Applebot). Kiểm bot có hỗ trợ wildcard không |
+   | `noindex` / `canonical` cho tổ hợp sâu | ít giá trị nếu bot vẫn tải trang | không giảm tải ngay |
+   | Không sinh link tới tổ hợp sâu trong HTML (link bộ lọc qua form / JS) | bot không tìm thấy URL mới | đổi giao diện, ảnh hưởng crawl của Google |
+   | Giới hạn tốc độ theo bot (WAF rate-based rule) | chặn đỉnh | bot có thể bị 429 → crawl ít đi; cấu hình là việc của infra |
+   | Tăng sức DB đọc (thêm reader, reader lớn hơn) | chịu được tải | chi phí; không sửa gốc |
+   | Tối ưu query khi miss (§4–§6) | mỗi lượt miss rẻ hơn | công sức lớn nhất, nhưng có lợi cho cả người dùng thật |
+
+5. Ghi vào report: bot nào, bao nhiêu request / giờ, từ ngày nào, chiếm bao nhiêu % tải, các cách trên kèm **ai quyết**. Team không tự đổi robots.txt / WAF / hạ tầng khi chưa có quyết định.

@@ -75,4 +75,4 @@ Gợi ý `pages.tsv` cho trang chi tiết: lấy `recruitno` thật đang mở t
 
 ## Bài học dự án trước
 
-SHOKAI_ARCH_2506-76 (tối ưu trang tìm việc, 2 phase) — xem [`backend-perf` playbook §9](../skills/backend-perf/references/playbook.md).
+SHOKAI_ARCH_2506-76 (tối ưu trang tìm việc, 2 phase) và đo lại 22/10/2026 (Applebot) — xem [`backend-perf` playbook §9, §10](../skills/backend-perf/references/playbook.md).

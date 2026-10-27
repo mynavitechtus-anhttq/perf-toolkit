@@ -59,6 +59,7 @@ Profile chứa: knowledge base (repo + đường dẫn spec) · môi trường (
 - **Một thay đổi → một lần đo.** Gộp rồi đo thì không biết cái nào có tác dụng.
 - **Ai nghĩ, ai gõ:** chọn hướng, chốt kết luận, quyết đánh đổi là của người phụ trách. AI đo, grep, soạn nháp theo template; người soát từng dòng.
 - Claim chưa kiểm → `[Giả định — cách verify: …]`. Không có claim trần.
+- **So với report / số đo cũ:** số mới lệch số cũ → **hỏi lại cách đo cũ trước** (có xoá cache không, đo giờ nào, môi trường nào, cùng URL không, tải lúc đó ra sao) rồi mới kết luận. Không suy "số cũ đo sai" từ suy luận một mình — người đo cũ thường biết điều kiện mà report không ghi.
 
 ## An toàn (cứng)
 

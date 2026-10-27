@@ -76,8 +76,19 @@ Cảnh báo AWS: console Performance Insights đã EOL 31/07/2026 → CloudWatch
 
 Đây là **cổng quyết định** cho khách/lead trước khi team đầu tư điều tra sâu.
 
+0. **Khoanh vùng nhanh — trước khi nghi code.** Trả lời 4 câu, mỗi câu 1 lệnh / 1 màn hình:
+
+   | Câu hỏi | Cách trả lời nhanh | Nếu câu trả lời là… → |
+   |---|---|---|
+   | Chậm ở **mọi trang** hay **vài trang**? | `measure-ttfb.sh` trên `pages.tsv` có cả trang đối chứng (vd trang chủ) | mọi trang → hạ tầng / tải chung, không phải code một trang |
+   | Chậm **lúc nào cũng vậy** hay **một khung giờ**? | `cloudwatch_snapshot.py --alb … --series hour` 2–3 ngày | có khung giờ → tải theo lịch (crawler, batch) → [`infra-check`](../infra-check/SKILL.md) mục 1–2 |
+   | Chậm **từ ngày nào**? | `--series day` từ trước lần cải thiện / release gần nhất | có bậc tăng → tìm chuyện xảy ra ngày đó |
+   | Ngày đó trùng **release** hay trùng **lượng truy cập tăng**? | `git log --merges --first-parent <nhánh prod>` quanh ngày đó + `RequestCount` | trùng release → code (`backend-perf`); trùng traffic → `infra-check` |
+
+   Ghi 4 câu trả lời vào mục *Khoanh vùng* của report. Đo TTFB trong khung đông và ngoài khung đông là **hai số khác nhau** — ghi rõ mỗi số đo lúc nào.
+
 1. Bắt buộc: TTFB + PSI cho toàn bộ `pages.tsv`. Cột *Server* vượt ngân sách hoặc nghi DB/hạ tầng → chạy [`infra-check`](../infra-check/SKILL.md).
-2. Viết `$WS/2-baseline/report-baseline-{yyyymmdd}.md` theo `$PLUGIN/templates/report-baseline.md`: chỉ số → thời gian mất ở đâu → phương án sơ bộ → mong đợi → cần khách chốt.
+2. Viết `$WS/2-baseline/report-baseline-{yyyymmdd}.md` theo `$PLUGIN/templates/report-baseline.md`: khoanh vùng → chỉ số → thời gian mất ở đâu → phương án sơ bộ → mong đợi → cần khách chốt.
 3. **Ước lượng "mong đợi" — tính, không đoán:**
    - **Backend:** không thể tiết kiệm nhiều hơn phần *Server* của TTFB. Trong đó phần DB ≈ tỉ trọng top SQL của trang (RDS PI / pg_stat_statements) → đó là **trần** cải thiện.
    - **PSI:** lấy *estimated savings* của từng opportunity → giá trị metric mục tiêu → nhập vào [Lighthouse Scoring Calculator](https://googlechrome.github.io/lighthouse/scorecalc/) ra điểm dự kiến. Ghi thành **khoảng**.
